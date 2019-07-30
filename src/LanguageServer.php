@@ -163,14 +163,15 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
      * @param ClientCapabilities $capabilities The capabilities provided by the client (editor)
      * @param string|null $rootPath The rootPath of the workspace. Is null if no folder is open.
      * @param int|null $processId The process Id of the parent process that started the server. Is null if the process has not been started by another process. If the parent process is not alive then the server should exit (see exit notification) its process.
+     * @param mixed $initializationOptions Could include exclude patterns.
      * @return Promise <InitializeResult>
      */
-    public function initialize(ClientCapabilities $capabilities, string $rootPath = null, int $processId = null, string $rootUri = null): Promise
+    public function initialize(ClientCapabilities $capabilities, string $rootPath = null, int $processId = null, string $rootUri = null, $initializationOptions = null): Promise
     {
         if ($rootPath === null && $rootUri !== null) {
             $rootPath = uriToPath($rootUri);
         }
-        return coroutine(function () use ($capabilities, $rootPath, $processId) {
+        return coroutine(function () use ($capabilities, $rootPath, $processId, $initializationOptions) {
 
             if ($capabilities->xfilesProvider) {
                 $this->filesFinder = new ClientFilesFinder($this->client);
@@ -224,6 +225,9 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
 
                 $cache = $capabilities->xcacheProvider ? new ClientCache($this->client) : new FileSystemCache;
 
+                // Get excludes
+                $exclude = $initializationOptions->exclude ?? [];
+
                 // Index in background
                 $indexer = new Indexer(
                     $this->filesFinder,
@@ -234,7 +238,8 @@ class LanguageServer extends AdvancedJsonRpc\Dispatcher
                     $sourceIndex,
                     $this->documentLoader,
                     $this->composerLock,
-                    $this->composerJson
+                    $this->composerJson,
+                    $exclude
                 );
                 $indexer->index()->otherwise('\\LanguageServer\\crash');
             }

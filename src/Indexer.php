@@ -64,6 +64,11 @@ class Indexer
     private $composerJson;
 
     /**
+     * @var array
+     */
+    private $exclude;
+
+    /**
      * @param FilesFinder       $filesFinder
      * @param string            $rootPath
      * @param LanguageClient    $client
@@ -72,6 +77,7 @@ class Indexer
      * @param Index             $sourceIndex
      * @param PhpDocumentLoader $documentLoader
      * @param \stdClass|null    $composerLock
+     * @param array             $exclude
      */
     public function __construct(
         FilesFinder $filesFinder,
@@ -82,7 +88,8 @@ class Indexer
         Index $sourceIndex,
         PhpDocumentLoader $documentLoader,
         \stdClass $composerLock = null,
-        \stdClass $composerJson = null
+        \stdClass $composerJson = null,
+        array $exclude = []
     ) {
         $this->filesFinder = $filesFinder;
         $this->rootPath = $rootPath;
@@ -93,6 +100,7 @@ class Indexer
         $this->documentLoader = $documentLoader;
         $this->composerLock = $composerLock;
         $this->composerJson = $composerJson;
+        $this->exclude = $exclude;
     }
 
     /**
@@ -106,6 +114,16 @@ class Indexer
 
             $pattern = Path::makeAbsolute('**/*.php', $this->rootPath);
             $uris = yield $this->filesFinder->find($pattern);
+
+            // Exclude files
+            $uris = array_filter($uris, function ($uri) {
+                foreach ($this->exclude as $excludePattern) {
+                    if (fnmatch($excludePattern, $uri)) {
+                        return false;
+                    }
+                }
+                return true;
+            });
 
             $count = count($uris);
             $startTime = microtime(true);
