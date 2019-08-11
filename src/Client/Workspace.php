@@ -7,6 +7,7 @@ use LanguageServer\ClientHandler;
 use LanguageServerProtocol\TextDocumentIdentifier;
 use Sabre\Event\Promise;
 use JsonMapper;
+use stdClass;
 
 /**
  * Provides method handlers for all workspace/* methods
@@ -43,5 +44,45 @@ class Workspace
         )->then(function (array $textDocuments) {
             return $this->mapper->mapArray($textDocuments, [], TextDocumentIdentifier::class);
         });
+    }
+
+    /**
+     * Request one configuration item
+     * 
+     * @param string $section The configuration section asked for
+     * @param string $scopeUri The scope to get the configuration section for
+     * @return Promise <mixed> Requested configuration section
+     */
+    public function configurationItem(string $section = null, string $scopeUri = null): Promise
+    {
+        $item = new stdClass();
+        if ($scopeUri) {
+            $item->scopeUri = $scopeUri;
+        }
+        if ($section) {
+            $item->section = $section;
+        }
+        return $this->configuration([$item])->then(function (array $configuration) {
+            return $configuration[0];
+        });
+    }
+
+    /**
+     * Request multiple configuration items
+     * 
+     * @param array[]|object[] $items
+     *     Single item in items array must follow the ConfigurationItem interface
+     *     (https://microsoft.github.io/language-server-protocol/specification#workspace_configuration)
+     *     - scopeUri?: string
+     *     - section?: string
+     * 
+     * @return Promise <mixed[]> Requested configuration section in the requested order
+     */
+    public function configuration(array $items): Promise
+    {
+        return $this->handler->request(
+            'workspace/configuration',
+            ['items' => $items]
+        );
     }
 }
